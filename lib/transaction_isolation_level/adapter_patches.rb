@@ -1,3 +1,4 @@
+require 'active_record/connection_adapters/postgresql_adapter'
 module ActiveRecord
   module ConnectionAdapters
     module DatabaseStatements
@@ -43,8 +44,7 @@ module ActiveRecord
         transaction_without_isolation_level(options) { yield }
       end
 
-      alias_method :transaction_without_isolation_level, :transaction
-      alias_method :transaction, :transaction_with_isolation_level
+      alias_method_chain :transaction, :isolation_level
     end
 
     class AbstractAdapter
@@ -70,18 +70,20 @@ module ActiveRecord
     end if const_defined?(:PostgreSQLAdapter)
 
     module MysqlAdapterPatches
-      def begin_db_transaction
+      def begin_db_transaction_with_isolation_level
         execute "SET TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}" if @transaction_isolation_level # applies only to the next transaction
-        super
+        begin_db_transaction_without_isolation_level
       end
     end
 
     MysqlAdapter.class_eval do
       include MysqlAdapterPatches
+      alias_method_chain :begin_db_transaction, :isolation_level
     end if const_defined?(:MysqlAdapter)
 
     Mysql2Adapter.class_eval do
       include MysqlAdapterPatches
+      alias_method_chain :begin_db_transaction, :isolation_level
     end if const_defined?(:Mysql2Adapter)
   end
 end
