@@ -35,6 +35,15 @@ class TransactionIsolationLevelTest < ActiveSupport::TestCase
     assert_equal default_level, current_isolation_level
   end
 
+  test "raises an error if the requested transaction isolation level is not known" do
+    assert_raises(ArgumentError) do
+      ActiveRecord::Base.transaction(:isolation_level => :serialisable) {}
+    end
+    assert_raises(ArgumentError) do
+      ActiveRecord::Base.transaction(:minimum_isolation_level => :serialisable) {}
+    end
+  end
+
   test "raises an error if a transaction is already open and the requested transaction isolation level is different to the current level" do
     ActiveRecord::Base.transaction(:isolation_level => :repeatable_read) do
       assert_raises(ActiveRecord::IncompatibleTransactionIsolationLevel) do
