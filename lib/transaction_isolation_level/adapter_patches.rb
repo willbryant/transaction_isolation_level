@@ -34,11 +34,11 @@ module ActiveRecord
 
         if open_transactions == 0
           @transaction_isolation_level = isolation_level || minimum_isolation_level
-        elsif isolation_level && isolation_level != @transaction_isolation_level
-          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level #{isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || :unknown}"
+        elsif isolation_level && isolation_level != (@transaction_isolation_level || default_transaction_isolation_level)
+          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level #{isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level || :unknown}"
         end
-        if minimum_isolation_level && ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(minimum_isolation_level) > ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(@transaction_isolation_level)
-          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level at least #{minimum_isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || :unknown}"
+        if minimum_isolation_level && ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(minimum_isolation_level) > ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(@transaction_isolation_level || default_transaction_isolation_level)
+          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level at least #{minimum_isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level || :unknown}"
         end
 
         transaction_without_isolation_level(options) { yield }
@@ -48,7 +48,7 @@ module ActiveRecord
     end
 
     class AbstractAdapter
-      attr_reader :transaction_isolation_level
+      attr_reader :default_transaction_isolation_level, :transaction_isolation_level
 
       def commit_db_transaction #:nodoc:
         super
@@ -67,23 +67,44 @@ module ActiveRecord
       def begin_db_transaction
         execute "BEGIN TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}"
       end
+
+      def configure_connection_with_isolation_level
+        configure_connection_without_isolation_level
+        if @config[:transaction_isolation_level]
+          @default_transaction_isolation_level = @config[:transaction_isolation_level].to_sym
+          execute "SET SESSION CHARACTERISTICS AS TRANSACTION #{transaction_isolation_level_sql default_transaction_isolation_level}"
+        end
+      end
+
+      alias_method_chain :configure_connection, :isolation_level
     end if const_defined?(:PostgreSQLAdapter)
 
     module MysqlAdapterPatches
+      def self.included(base)
+        base.alias_method_chain :begin_db_transaction, :isolation_level
+        base.alias_method_chain :configure_connection, :isolation_level
+      end
+
       def begin_db_transaction_with_isolation_level
         execute "SET TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}" if @transaction_isolation_level # applies only to the next transaction
         begin_db_transaction_without_isolation_level
+      end
+
+      def configure_connection_with_isolation_level
+        configure_connection_without_isolation_level
+        if @config[:transaction_isolation_level]
+          @default_transaction_isolation_level = @config[:transaction_isolation_level].to_sym
+          execute "SET SESSION TRANSACTION #{transaction_isolation_level_sql default_transaction_isolation_level}"
+        end
       end
     end
 
     MysqlAdapter.class_eval do
       include MysqlAdapterPatches
-      alias_method_chain :begin_db_transaction, :isolation_level
     end if const_defined?(:MysqlAdapter)
 
     Mysql2Adapter.class_eval do
       include MysqlAdapterPatches
-      alias_method_chain :begin_db_transaction, :isolation_level
     end if const_defined?(:Mysql2Adapter)
   end
 end
