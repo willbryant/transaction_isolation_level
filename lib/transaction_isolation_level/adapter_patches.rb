@@ -1,12 +1,22 @@
 module ActiveRecord
   module ConnectionAdapters
     module DatabaseStatements
+      ORDER_OF_TRANSACTION_ISOLATION_LEVELS = [:read_uncommitted, :read_committed, :repeatable_read, :serializable]
+
       def transaction_with_isolation_level(options = {})
         isolation_level = options.delete(:isolation_level)
+        minimum_isolation_level = options.delete(:minimum_isolation_level)
+
+        raise ArgumentError,         "#{isolation_level.inspect} is not a known transaction isolation level" unless         isolation_level.nil? || ORDER_OF_TRANSACTION_ISOLATION_LEVELS.include?(isolation_level)
+        raise ArgumentError, "#{minimum_isolation_level.inspect} is not a known transaction isolation level" unless minimum_isolation_level.nil? || ORDER_OF_TRANSACTION_ISOLATION_LEVELS.include?(minimum_isolation_level)
+
         if open_transactions == 0
-          @transaction_isolation_level = isolation_level
+          @transaction_isolation_level = isolation_level || minimum_isolation_level
         elsif isolation_level && isolation_level != @transaction_isolation_level
           raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level #{isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || :unknown}"
+        end
+        if minimum_isolation_level && ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(minimum_isolation_level) > ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(@transaction_isolation_level)
+          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level at least #{minimum_isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || :unknown}"
         end
 
         transaction_without_isolation_level(options) { yield }
