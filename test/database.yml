@@ -1,0 +1,11 @@
+mysql:
+    adapter: mysql
+    database: transaction_isolation_level_test
+    username: root
+mysql2:
+    adapter: mysql2
+    database: transaction_isolation_level_test
+    username: root
+postgresql:
+    adapter: postgresql
+    database: transaction_isolation_level_test
