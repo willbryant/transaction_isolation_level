@@ -18,7 +18,7 @@ module ActiveRecord
         case value.gsub('-', ' ').upcase
         when 'READ UNCOMMITTED' then :read_uncommitted
         when 'READ COMMITTED'   then :read_committed
-        when 'REPEATABLE READ'  then :repeatable_read 
+        when 'REPEATABLE READ'  then :repeatable_read
         when 'SERIALIZABLE'     then :serializable
         else raise "Unknown transaction isolation level: #{value.inspect}"
         end
