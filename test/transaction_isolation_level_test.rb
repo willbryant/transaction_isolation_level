@@ -2,10 +2,9 @@ require 'test_helper'
 
 class TransactionIsolationLevelTest < ActiveSupport::TestCase
   def current_isolation_level
-    # we can't implement fetch_isolation_level for mysql as it does not expose the value set for
-    # the transaction (as opposed to the session) - see http://bugs.mysql.com/bug.php?id=53341
-    # so currently we can only run tests on postgresql.
-    ActiveRecord::Base.connection.select_value "SELECT current_setting('transaction_isolation')"
+    # we can't implement this for mysql as it does not expose the value set for the transaction (as opposed to the session) -
+    # see http://bugs.mysql.com/bug.php?id=53341.  so currently we can only run tests on postgresql.
+    ActiveRecord::Base.connection.transaction_isolation_level_from_sql(ActiveRecord::Base.connection.select_value("SELECT current_setting('transaction_isolation')"))
   end
 
   test "it does nothing to queries by default" do
@@ -18,19 +17,19 @@ class TransactionIsolationLevelTest < ActiveSupport::TestCase
   test "it allows the isolation level to be set for the transaction, and it is reset after the transaction" do
     default_level = current_isolation_level
     ActiveRecord::Base.transaction(:isolation_level => :read_uncommitted) do
-      assert_equal "read uncommitted", current_isolation_level.downcase
+      assert_equal :read_uncommitted, current_isolation_level
     end
     assert_equal default_level, current_isolation_level
     ActiveRecord::Base.transaction(:isolation_level => :read_committed) do
-      assert_equal "read committed", current_isolation_level.downcase
+      assert_equal :read_committed, current_isolation_level
     end
     assert_equal default_level, current_isolation_level
     ActiveRecord::Base.transaction(:isolation_level => :repeatable_read) do
-      assert_equal "repeatable read", current_isolation_level.downcase
+      assert_equal :repeatable_read, current_isolation_level
     end
     assert_equal default_level, current_isolation_level
     ActiveRecord::Base.transaction(:isolation_level => :serializable) do
-      assert_equal "serializable", current_isolation_level.downcase
+      assert_equal :serializable, current_isolation_level
     end
     assert_equal default_level, current_isolation_level
   end
