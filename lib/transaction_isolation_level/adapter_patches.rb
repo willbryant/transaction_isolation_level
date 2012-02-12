@@ -3,6 +3,27 @@ module ActiveRecord
     module DatabaseStatements
       ORDER_OF_TRANSACTION_ISOLATION_LEVELS = [:read_uncommitted, :read_committed, :repeatable_read, :serializable]
 
+      def transaction_isolation_level_sql(value)
+        case value
+        when :read_uncommitted then 'ISOLATION LEVEL READ UNCOMMITTED'
+        when :read_committed   then 'ISOLATION LEVEL READ COMMITTED'
+        when :repeatable_read  then 'ISOLATION LEVEL REPEATABLE READ'
+        when :serializable     then 'ISOLATION LEVEL SERIALIZABLE'
+        when nil               then nil
+        else raise "Unknown transaction isolation level: #{value.inspect}"
+        end
+      end
+
+      def transaction_isolation_level_from_sql(value)
+        case value.gsub('-', ' ').upcase
+        when 'READ UNCOMMITTED' then :read_uncommitted
+        when 'READ COMMITTED'   then :read_committed
+        when 'REPEATABLE READ'  then :repeatable_read 
+        when 'SERIALIZABLE'     then :serializable
+        else raise "Unknown transaction isolation level: #{value.inspect}"
+        end
+      end
+
       def transaction_with_isolation_level(options = {})
         isolation_level = options.delete(:isolation_level)
         minimum_isolation_level = options.delete(:minimum_isolation_level)
@@ -29,27 +50,6 @@ module ActiveRecord
     class AbstractAdapter
       attr_reader :transaction_isolation_level
 
-      def transaction_isolation_level_sql
-        case @transaction_isolation_level
-        when :read_uncommitted then 'ISOLATION LEVEL READ UNCOMMITTED'
-        when :read_committed   then 'ISOLATION LEVEL READ COMMITTED'
-        when :repeatable_read  then 'ISOLATION LEVEL REPEATABLE READ'
-        when :serializable     then 'ISOLATION LEVEL SERIALIZABLE'
-        when nil               then nil
-        else raise "Unknown transaction isolation level: #{@transaction_isolation_level.inspect}"
-        end
-      end
-
-      def transaction_isolation_level_from_sql(value)
-        case value.gsub('-', ' ').upcase
-        when 'READ UNCOMMITTED' then :read_uncommitted
-        when 'READ COMMITTED'   then :read_committed
-        when 'REPEATABLE READ'  then :repeatable_read 
-        when 'SERIALIZABLE'     then :serializable
-        else raise "Unknown transaction isolation level: #{value.inspect}"
-        end
-      end
-
       def commit_db_transaction #:nodoc:
         super
       ensure
@@ -65,22 +65,23 @@ module ActiveRecord
 
     PostgreSQLAdapter.class_eval do
       def begin_db_transaction
-        execute "BEGIN TRANSACTION #{transaction_isolation_level_sql}"
+        execute "BEGIN TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}"
       end
     end if const_defined?(:PostgreSQLAdapter)
 
-    MysqlAdapter.class_eval do
+    module MysqlAdapterPatches
       def begin_db_transaction
-        execute "SET TRANSACTION #{transaction_isolation_level_sql}" if transaction_isolation_level # applies only to the next transaction
+        execute "SET TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}" if @transaction_isolation_level # applies only to the next transaction
         super
       end
+    end
+
+    MysqlAdapter.class_eval do
+      include MysqlAdapterPatches
     end if const_defined?(:MysqlAdapter)
 
     Mysql2Adapter.class_eval do
-      def begin_db_transaction
-        execute "SET TRANSACTION #{transaction_isolation_level_sql}" if transaction_isolation_level # as above
-        super
-      end
+      include MysqlAdapterPatches
     end if const_defined?(:Mysql2Adapter)
   end
 end
