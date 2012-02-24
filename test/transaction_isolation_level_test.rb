@@ -110,10 +110,10 @@ class TransactionIsolationLevelTest < ActiveSupport::TestCase
   test "it supports setting the transaction_isolation in database.yml" do
     database_config = YAML::load(IO.read(File.join(File.dirname(__FILE__), '/database.yml')))
 
-    ModelWithConnectionForSerializable.establish_connection(database_config["#{ENV['RAILS_ENV']}_set_to_serializable"])
+    ModelWithConnectionForSerializable.establish_connection(database_config["#{RAILS_ENV}_set_to_serializable"])
     assert_equal :serializable, current_isolation_level(ModelWithConnectionForSerializable.connection)
 
-    ModelWithConnectionForReadCommitted.establish_connection(database_config["#{ENV['RAILS_ENV']}_set_to_read_committed"])
+    ModelWithConnectionForReadCommitted.establish_connection(database_config["#{RAILS_ENV}_set_to_read_committed"])
     assert_equal :read_committed, current_isolation_level(ModelWithConnectionForReadCommitted.connection)
 
     ModelWithConnectionForSerializable.transaction do # will use default isolation level
