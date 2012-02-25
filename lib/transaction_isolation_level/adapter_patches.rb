@@ -34,10 +34,10 @@ module ActiveRecord
         if open_transactions == 0
           @transaction_isolation_level = isolation_level || minimum_isolation_level
         elsif isolation_level && isolation_level != (@transaction_isolation_level || default_transaction_isolation_level)
-          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level #{isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level || :unknown}"
+          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level #{isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level}"
         end
         if minimum_isolation_level && ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(minimum_isolation_level) > ORDER_OF_TRANSACTION_ISOLATION_LEVELS.index(@transaction_isolation_level || default_transaction_isolation_level)
-          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level at least #{minimum_isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level || :unknown}"
+          raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level at least #{minimum_isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level}"
         end
 
         transaction_without_isolation_level(options) { yield }
@@ -72,6 +72,8 @@ module ActiveRecord
         if @config[:transaction_isolation_level]
           @default_transaction_isolation_level = @config[:transaction_isolation_level].to_sym
           execute "SET SESSION CHARACTERISTICS AS TRANSACTION #{transaction_isolation_level_sql default_transaction_isolation_level}"
+        else
+          @default_transaction_isolation_level = transaction_isolation_level_from_sql(select_value("SELECT current_setting('default_transaction_isolation')"))
         end
       end
 
@@ -94,6 +96,8 @@ module ActiveRecord
         if @config[:transaction_isolation_level]
           @default_transaction_isolation_level = @config[:transaction_isolation_level].to_sym
           execute "SET SESSION TRANSACTION #{transaction_isolation_level_sql default_transaction_isolation_level}"
+        else
+          @default_transaction_isolation_level = transaction_isolation_level_from_sql(select_value("SELECT @@session.tx_isolation"))
         end
       end
     end

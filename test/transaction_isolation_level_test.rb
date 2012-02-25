@@ -73,6 +73,16 @@ class TransactionIsolationLevelTest < ActiveSupport::TestCase
         ActiveRecord::Base.transaction(:isolation_level => :serializable) {}
       end
     end
+
+    default = current_isolation_level
+    ActiveRecord::Base.transaction do
+      assert_raises(ActiveRecord::IncompatibleTransactionIsolationLevel) do
+        ActiveRecord::Base.transaction(:isolation_level => ([:read_committed, :repeatable_read] - [default]).first) {}
+      end
+      assert_nothing_raised do
+        ActiveRecord::Base.transaction(:isolation_level => current_isolation_level) {}
+      end
+    end
   end
 
   test "supports requesting a minimum transaction isolation level, in which case an error is raised only if requested transaction isolation level is higher than the actual transaction isolation" do
