@@ -58,7 +58,7 @@ module ActiveRecord
       def rollback_db_transaction #:nodoc:
         super
       ensure
-        @transaction_isolation_level
+        @transaction_isolation_level = nil
       end
     end
 
