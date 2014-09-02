@@ -67,6 +67,10 @@ module ActiveRecord
         execute "BEGIN TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}"
       end
 
+      def type_map
+        @type_map ||= PostgreSQLAdapter::OID::TypeMap.new.tap {|type_map| initialize_type_map(type_map)}
+      end
+
       def configure_connection_with_isolation_level
         configure_connection_without_isolation_level
         if @config[:transaction_isolation_level]

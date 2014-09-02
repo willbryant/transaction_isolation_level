@@ -1,7 +1,8 @@
-require 'test/unit'
+require 'minitest/autorun'
 require 'rubygems'
 require 'bundler'
 Bundler.require(:default, :development)
+require 'yaml'
 
 RAILS_ENV = ENV['RAILS_ENV'] || 'postgresql'
 
