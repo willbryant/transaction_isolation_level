@@ -43,7 +43,8 @@ module ActiveRecord
         transaction_without_isolation_level(options) { yield }
       end
 
-      alias_method_chain :transaction, :isolation_level
+      alias :transaction_without_isolation_level :transaction
+      alias :transaction :transaction_with_isolation_level
     end
 
     class AbstractAdapter
@@ -62,7 +63,7 @@ module ActiveRecord
       end
     end
 
-    PostgreSQLAdapter.class_eval do
+    module PostgreSQLAdapterPatches
       def begin_db_transaction
         execute "BEGIN TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}"
       end
@@ -71,8 +72,8 @@ module ActiveRecord
         @type_map ||= PostgreSQLAdapter::OID::TypeMap.new.tap {|type_map| initialize_type_map(type_map)}
       end
 
-      def configure_connection_with_isolation_level
-        configure_connection_without_isolation_level
+      def configure_connection
+        super
         if @config[:transaction_isolation_level]
           @default_transaction_isolation_level = @config[:transaction_isolation_level].to_sym
           execute "SET SESSION CHARACTERISTICS AS TRANSACTION #{transaction_isolation_level_sql default_transaction_isolation_level}"
@@ -80,23 +81,16 @@ module ActiveRecord
           @default_transaction_isolation_level = transaction_isolation_level_from_sql(select_value("SELECT current_setting('default_transaction_isolation')"))
         end
       end
-
-      alias_method_chain :configure_connection, :isolation_level
-    end if const_defined?(:PostgreSQLAdapter)
+    end
 
     module MysqlAdapterPatches
-      def self.included(base)
-        base.alias_method_chain :begin_db_transaction, :isolation_level
-        base.alias_method_chain :configure_connection, :isolation_level
-      end
-
-      def begin_db_transaction_with_isolation_level
+      def begin_db_transaction
         execute "SET TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}" if @transaction_isolation_level # applies only to the next transaction
-        begin_db_transaction_without_isolation_level
+        super
       end
 
-      def configure_connection_with_isolation_level
-        configure_connection_without_isolation_level
+      def configure_connection
+        super
         if @config[:transaction_isolation_level]
           @default_transaction_isolation_level = @config[:transaction_isolation_level].to_sym
           execute "SET SESSION TRANSACTION #{transaction_isolation_level_sql default_transaction_isolation_level}"
@@ -106,12 +100,16 @@ module ActiveRecord
       end
     end
 
+    PostgreSQLAdapter.class_eval do
+      prepend PostgreSQLAdapterPatches
+    end if const_defined?(:PostgreSQLAdapter)
+
     MysqlAdapter.class_eval do
-      include MysqlAdapterPatches
+      prepend MysqlAdapterPatches
     end if const_defined?(:MysqlAdapter)
 
     Mysql2Adapter.class_eval do
-      include MysqlAdapterPatches
+      prepend MysqlAdapterPatches
     end if const_defined?(:Mysql2Adapter)
   end
 end
