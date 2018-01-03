@@ -68,8 +68,20 @@ module ActiveRecord
         execute "BEGIN TRANSACTION #{transaction_isolation_level_sql(@transaction_isolation_level)}"
       end
 
+      # the postgresql adapter calls configure_connection part way through its #initialize.  after that point, it sets
+      # @type_map.  however, by calling execute, our overridden configure_connection will run a query, and this requires
+      # a type map, which needs to be the postgresql-specific type that #initialize would instantiate, not the default
+      # created by #type_map in the abstract adapter code.  so we override that default to be the same as #initialize
+      # will make.
       def type_map
-        @type_map ||= PostgreSQLAdapter::OID::TypeMap.new.tap {|type_map| initialize_type_map(type_map)}
+        @type_map ||=
+          if PostgreSQLAdapter::OID.const_defined?(:TypeMap)
+            # 5.0 and below
+            PostgreSQLAdapter::OID::TypeMap.new.tap {|type_map| initialize_type_map(type_map)}
+          else
+            # 5.1 and above
+            Type::HashLookupTypeMap.new.tap {|type_map| initialize_type_map(type_map)}
+          end
       end
 
       def configure_connection
