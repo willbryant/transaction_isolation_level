@@ -74,14 +74,17 @@ module ActiveRecord
       # created by #type_map in the abstract adapter code.  so we override that default to be the same as #initialize
       # will make.
       def type_map
-        @type_map ||=
+        return @type_map if instance_variable_defined?(:@type_map)
+        @type_map =
           if PostgreSQLAdapter::OID.const_defined?(:TypeMap)
             # 5.0 and below
-            PostgreSQLAdapter::OID::TypeMap.new.tap {|type_map| initialize_type_map(type_map)}
+            PostgreSQLAdapter::OID::TypeMap.new
           else
             # 5.1 and above
-            Type::HashLookupTypeMap.new.tap {|type_map| initialize_type_map(type_map)}
+            Type::HashLookupTypeMap.new
           end
+        initialize_type_map(type_map)
+        @type_map
       end
 
       def configure_connection
