@@ -24,7 +24,7 @@ module ActiveRecord
         end
       end
 
-      def transaction_with_isolation_level(options = {})
+      def transaction_with_isolation_level(**options)
         isolation_level = options.delete(:isolation_level)
         minimum_isolation_level = options.delete(:minimum_isolation_level)
 
@@ -40,7 +40,7 @@ module ActiveRecord
           raise IncompatibleTransactionIsolationLevel, "Asked to use transaction isolation level at least #{minimum_isolation_level}, but the transaction has already begun with isolation level #{@transaction_isolation_level || default_transaction_isolation_level}"
         end
 
-        transaction_without_isolation_level(options) { yield }
+        transaction_without_isolation_level(**options) { yield }
       end
 
       alias :transaction_without_isolation_level :transaction

@@ -11,3 +11,4 @@ gemspec
 # your gem to rubygems.org.
 
 gem 'activerecord', ENV['RAILS_VERSION']
+gem 'byebug'
