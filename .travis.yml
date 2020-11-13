@@ -1,0 +1,14 @@
+---
+sudo: false
+language: ruby
+cache: bundler
+dist: bionic
+rvm:
+  - 2.6
+services:
+  - postgresql
+  - mysql
+before_script:
+  - createdb -U postgres transaction_isolation_level_test
+  - mysqladmin -u root create transaction_isolation_level_test
+script: ./test_all.sh
